@@ -30,13 +30,13 @@ java com.jeffpalm.photocollage.PhotoCollageMain inputImage sourceImage+ [option+
 where options include:
 
 <pre>
-  --help              Print the help message
-  --outdir <dir>      Output images to dir
-  --rows num          Split up the output into num rows (Defaults to 1)
-  --cols num          Split up the output into num columns (Defaults to 1)
-  --width num         Resize the input image to num (Defaults to 200px)
-  --smallwidth num    Use images of width num for the pixels (Defaults to 50px)
-  --smallheight num   Use images of height num for the pixels (Defaults to 50px)
+--help              Print the help message
+--outdir <dir>      Output images to dir
+--rows num          Split up the output into num rows (Defaults to 1)
+--cols num          Split up the output into num columns (Defaults to 1)
+--width num         Resize the input image to num (Defaults to 200px)
+--smallwidth num    Use images of width num for the pixels (Defaults to 50px)
+--smallheight num   Use images of height num for the pixels (Defaults to 50px)
 </pre>
 
 This will read *inputImage* and create an output image (whose 
