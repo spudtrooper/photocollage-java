@@ -31,7 +31,7 @@ where options include:
 
 <pre>
 --help              Print the help message
---outdir <dir>      Output images to dir
+--outdir dir        Output images to dir
 --rows num          Split up the output into num rows (Defaults to 1)
 --cols num          Split up the output into num columns (Defaults to 1)
 --width num         Resize the input image to num (Defaults to 200px)
