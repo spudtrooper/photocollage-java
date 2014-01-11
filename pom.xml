@@ -6,7 +6,7 @@
   <packaging>jar</packaging>
   <version>1.3.5</version>
   <name>Photo Collage Maker</name>
-  <description>Make photo collages from smalle rimages</description>
+  <description>Make photo collages from smaller images</description>
   <url>http://github.com/spudtrooper/photocollage-java</url>
 
   <properties>
@@ -34,6 +34,14 @@
       <url>https://github.com/spudtrooper/genericbuilder-java/tree/mvn-repo</url>
     </repository>
   </repositories>
+
+  <distributionManagement>
+    <repository>
+      <id>internal.repo</id>
+      <name>Temporary Staging Repository</name>
+      <url>file://${project.build.directory}/mvn-repo</url>
+    </repository>
+  </distributionManagement>
 
   <scm>
     <connection>scm:http://github.com/spudtrooper/photocollage-java.git</connection>
@@ -74,7 +82,7 @@
         </configuration>
       </plugin>
 
-      <!-- To push maven atrifacts to github -->
+      <!-- To push maven atrifacts to 'mvn-repo' branch -->
       <plugin>
         <groupId>com.github.github</groupId>
         <artifactId>site-maven-plugin</artifactId>
