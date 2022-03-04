@@ -4,3 +4,6 @@ imageCache
 *.png
 ImageClassifierCache
 target
+.classpath
+.DS_Store
+.project
