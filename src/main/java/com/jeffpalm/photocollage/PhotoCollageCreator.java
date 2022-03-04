@@ -5,7 +5,11 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Vector;
+import java.util.Map;
+import java.util.HashMap;
 
 import javax.imageio.ImageIO;
 
@@ -13,20 +17,30 @@ import com.jeffpalm.builder.GenericBuilder;
 
 final class PhotoCollageCreator {
 
+  private final static Logger LOG = Logger.getLogger(PhotoCollageCreator.class.getName());
+
   private int resizedWidth = 200;
   private int numRows = 1;
   private int numCols = 1;
-  private int smallImageWidth = 50;
-  private int smallImageHeight = 50;
+  private int smallImageWidth = 100;
+  private int smallImageHeight = 100;
+  private int nearestImageThreshhold = 20;
   private File outDir;
 
   public interface Builder extends com.jeffpalm.builder.Builder<PhotoCollageCreator> {
     Builder setOutDir(File outDir);
+
     Builder setResizedWidth(int resizedWidth);
+
     Builder setNumRows(int numRows);
+
     Builder setNumCols(int numCols);
+
     Builder setSmallImageWidth(int smallImageWidth);
+
     Builder setSmallImageHeight(int smallImageHeight);
+
+    Builder setNearestImageThreshhold(int nearestImageThreshhold);
   }
 
   public static Builder newBuilder() {
@@ -35,8 +49,8 @@ final class PhotoCollageCreator {
 
   private final Log log = Log.getLog();
 
-  public void createCollage(File inputImageFile, Iterable<File> imageFiles) throws IOException,
-      InterruptedException {
+  public void createCollage(File inputImageFile, Iterable<File> imageFiles, boolean getColorEagerly)
+      throws IOException, InterruptedException {
 
     if (!inputImageFile.exists()) {
       throw new IllegalArgumentException(inputImageFile + " must exist");
@@ -49,6 +63,31 @@ final class PhotoCollageCreator {
       ClassifiedImage image = new ClassifiedImage(imageFile, imageClassifier);
       images.add(image);
     }
+    if (getColorEagerly) {
+      final Vector<ClassifiedImage> q = new Vector<ClassifiedImage>(images);
+      final int[] t = { 0 };
+      final int n = images.size();
+      for (int i = 0; i < 300; i++) {
+        new Thread(new Runnable() {
+          @Override
+          public void run() {
+
+            while (!q.isEmpty()) {
+              ClassifiedImage image = q.remove(0);
+              try {
+                LOG.infof("[%d/%d (%.2f%%)] getting color for %s", t[0], n, 100 * ((float) t[0] / (float) n), image);
+                t[0]++;
+                image.getColor();
+              } catch (IOException | InterruptedException e) {
+                e.printStackTrace();
+              }
+            }
+          }
+        }).start();
+      }
+      imageClassifier.flush();
+    }
+
     BufferedImage inputImage = ImageIO.read(inputImageFile);
     BufferedImage resizedInputImage = Util.resize(inputImage, resizedWidth);
 
@@ -59,10 +98,8 @@ final class PhotoCollageCreator {
     }
   }
 
-  private void createCollage(File inputImageFile, List<ClassifiedImage> images,
-      BufferedImage image, int row, int col) throws IOException, InterruptedException {
-
-    final int nearestImageThreshhold = 100;
+  private void createCollage(File inputImageFile, final List<ClassifiedImage> images, final BufferedImage image,
+      int row, int col) throws IOException, InterruptedException {
 
     final int width = image.getWidth() / numCols;
     final int height = image.getHeight() / numRows;
@@ -80,14 +117,12 @@ final class PhotoCollageCreator {
     if (numRows == 1 && numCols == 1) {
       outFile = new File(baseName + "-out." + ext);
     } else {
-      File outDir = this.outDir != null ? this.outDir : new File(baseName + "-" + numRows + "x"
-          + numCols + "-out");
+      File outDir = this.outDir != null ? this.outDir : new File(baseName + "-" + numRows + "x" + numCols + "-out");
       outDir.mkdirs();
       outFile = new File(outDir, baseName + "-" + row + "-" + col + "." + ext);
     }
 
     final Output output = new ImageOutput().open(outFile, newWidth, newHeight);
-
     log.start(width, height);
     final int rowStart = height * row;
     final int colStart = width * col;
@@ -108,6 +143,7 @@ final class PhotoCollageCreator {
         Comparable<Color> comp = new ComparableColor(color);
         ClassifiedImage classifiedImage = nearestImage(comp, images, nearestImageThreshhold);
         File bufImageFile = classifiedImage.getResizedImage(smallImageWidth);
+        BufferedImage bufImage = ImageIO.read(bufImageFile);
         int x = smallImageWidth * (j - colStart);
         int y = smallImageHeight * (i - rowStart);
         output.write(bufImageFile, x, y);
@@ -131,8 +167,11 @@ final class PhotoCollageCreator {
     }
   }
 
-  private ClassifiedImage nearestImage(Comparable<Color> color, List<ClassifiedImage> images,
-      int threshhold) throws InterruptedException, IOException {
+  private final Map<ClassifiedImage, Integer> lastUsed = new HashMap<ClassifiedImage, Integer>();
+  private int lastUsedCount = 0;
+
+  private ClassifiedImage nearestImage(Comparable<Color> color, List<ClassifiedImage> images, int threshhold)
+      throws InterruptedException, IOException {
     final List<ClassifiedImage> chosenImages = new ArrayList<ClassifiedImage>();
     int nearestDistance = Integer.MAX_VALUE;
     ClassifiedImage nearestImage = null;
@@ -146,14 +185,11 @@ final class PhotoCollageCreator {
         chosenImages.add(image);
       }
     }
-    log.info("threshhold=" + threshhold + " nearestDist=" + nearestDistance + " #images="
-        + chosenImages.size() + " color=" + color);
     if (chosenImages.size() == 0) {
       return nearestImage(color, images, threshhold + threshhold / 2);
     }
-    // Make the
     int newThreshhold = threshhold;
-    while (chosenImages.size() > 10) {
+    while (chosenImages.size() > 50) {
       newThreshhold /= 2;
       List<ClassifiedImage> newChosenImages = new ArrayList<ClassifiedImage>();
       for (ClassifiedImage image : chosenImages) {
@@ -163,11 +199,32 @@ final class PhotoCollageCreator {
       }
       chosenImages.clear();
       chosenImages.addAll(newChosenImages);
+      log.info("reducing threshold to " + newThreshhold + " #images=" + chosenImages.size());
     }
     if (chosenImages.isEmpty()) {
       return nearestImage;
     }
-    int index = (int) (chosenImages.size() * Math.random());
-    return chosenImages.get(index);
+
+    int minLastUsed = Integer.MAX_VALUE;
+    ClassifiedImage minLastUsedimg = null;
+    for (ClassifiedImage img : chosenImages) {
+      Integer imgLastUsed = lastUsed.get(img);
+      if (imgLastUsed == null) {
+        lastUsed.put(img, lastUsedCount++);
+        return img;
+      }
+      if (imgLastUsed < minLastUsed) {
+        minLastUsed = imgLastUsed;
+        minLastUsedimg = img;
+      }
+    }
+    lastUsed.put(minLastUsedimg, lastUsedCount++);
+    return minLastUsedimg;
+
+    // Collections.sort(chosenImages);
+    // int index = (int) (chosenImages.size() * Math.random());
+    // ClassifiedImage img = chosenImages.get(index);
+    // lastUsed.put(img, lastUsedCount++);
+    // return img;
   }
 }

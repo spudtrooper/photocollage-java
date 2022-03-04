@@ -46,6 +46,21 @@ final class Util {
     return dimg;
   }
 
+  public static boolean hasWhiteBorder(BufferedImage src) {
+    for (int x=0; x<5; x++) {
+      for (int y=0; y<5; y++) {
+        int col = src.getRGB(x, y);
+        int b = (col)&0xFF;
+        int g = (col>>8)&0xFF;
+        int r = (col>>16)&0xFF;
+        if (b < 0xfc && g < 0xfc && r < 0xfc) {
+          return false;
+        }
+      }  
+    }
+    return true;
+  }
+
   public static BufferedImage rotate(BufferedImage src) {
     if (src == null) {
 

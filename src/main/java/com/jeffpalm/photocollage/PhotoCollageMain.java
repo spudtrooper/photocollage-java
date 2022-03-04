@@ -20,6 +20,7 @@ public class PhotoCollageMain {
     PhotoCollageCreator.Builder builder = PhotoCollageCreator.newBuilder();
     FileFinder finder = new FileFinder();
     File inputImageFile = null;
+    boolean getColorEagerly = false;
     for (int i = 0; i < args.length;) {
       String arg = args[i++];
       if (isOption(arg, "outdir")) {
@@ -34,6 +35,10 @@ public class PhotoCollageMain {
         builder.setSmallImageWidth(Integer.parseInt(args[i++]));
       } else if (isOption(arg, "smallheight")) {
         builder.setSmallImageHeight(Integer.parseInt(args[i++]));
+      } else if (isOption(arg, "nearestimagethreshhold")) {
+        builder.setNearestImageThreshhold(Integer.parseInt(args[i++]));
+      } else if (isOption(arg, "getcoloreagerly")) {
+        getColorEagerly = true;
       } else if (isOption(arg, "help")) {
         printHelp();
         return 0;
@@ -56,7 +61,7 @@ public class PhotoCollageMain {
       throw new IllegalArgumentException("Input files required");
     }
     try {
-      builder.build().createCollage(inputImageFile, imageFiles);
+      builder.build().createCollage(inputImageFile, imageFiles, getColorEagerly);
     } catch (IOException e) {
       return 1;
     } catch (InterruptedException e) {

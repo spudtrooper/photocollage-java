@@ -95,17 +95,22 @@ final class ImageClassifier {
     this(new Config());
   }
 
+  public void flush() {
+    serialize(colorCache);
+  }
+
   public final Color classify(File imageFile) throws InterruptedException, IOException {
     long start = System.currentTimeMillis();
+    long endClassify = 0;
     Color result = colorCache.get(imageFile.getAbsolutePath());
     if (result == null) {
       result = doClassify(imageFile);
+      endClassify = System.currentTimeMillis();
       colorCache.put(imageFile.getAbsolutePath(), result);
-      serialize(colorCache);
     } else {
       LOG.info("Found cached value");
     }
-    LOG.info("Classified " + imageFile + " in " + (System.currentTimeMillis() - start) + "ms");
+    LOG.info("Classified " + imageFile + " in " + (endClassify- start) + "ms; total = "+ (System.currentTimeMillis() - start) + "ms");
     return result;
   }
 

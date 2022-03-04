@@ -7,7 +7,7 @@ import java.io.IOException;
 
 import javax.imageio.ImageIO;
 
-final class ClassifiedImage {
+final class ClassifiedImage implements Comparable<ClassifiedImage> {
 
   private final static ImageCache imageCache = new ImageCache();
 
@@ -41,5 +41,24 @@ final class ClassifiedImage {
       color = imageClassifier.classify(file);
     }
     return color;
+  }
+
+  @Override
+  public int hashCode() {
+    return file.hashCode();
+  }
+
+  @Override
+  public int compareTo(ClassifiedImage that) {
+    return this.file.compareTo(that.file);
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (!(o instanceof ClassifiedImage)) {
+      return false;
+    }
+    ClassifiedImage that = (ClassifiedImage) o;
+    return this.file.equals(that.file);
   }
 }

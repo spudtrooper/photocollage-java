@@ -17,6 +17,11 @@ public class Logger {
     System.err.println(name + " " + msg);
   }
 
+  public void infof(String tmpl, Object... args) {
+    System.err.println(String.format(name + " " + tmpl, args));
+  }
+
+
   public static Logger getLogger(String name) {
     Logger logger = loggerMap.get(name);
     if (logger == null) {
