@@ -4,6 +4,8 @@ import java.awt.Color;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 
 import javax.imageio.ImageIO;
 
@@ -36,9 +38,19 @@ final class ClassifiedImage implements Comparable<ClassifiedImage> {
     return Util.resize(getBufferedImage(), width);
   }
 
+  private final Map<ImageSegment, Color> segmentsTocolors = new HashMap<>();
+  public Color getColor(ImageSegment s) {
+    Color color = segmentsTocolors.get(s);
+    if (color == null) {
+      color = imageClassifier.classify(file, s);
+      segmentsTocolors.put(s, color);
+    }
+    return color;
+  }
+
   public Color getColor() throws InterruptedException, IOException {
     if (color == null) {
-      color = imageClassifier.classify(file);
+      color = imageClassifier.classify(file, ImageSegment.ALL);
     }
     return color;
   }

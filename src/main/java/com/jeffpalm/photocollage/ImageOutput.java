@@ -29,5 +29,6 @@ final class ImageOutput implements Output {
   public void close() throws IOException {
     Log.getLog().info("Writing to " + outFile + "...");
     ImageIO.write(outImage, "png", outFile);
+    Log.getLog().info("Wrote to " + outFile);
   }
 }

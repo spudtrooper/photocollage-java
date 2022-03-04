@@ -5,11 +5,14 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
-import java.util.List;
-import java.util.Vector;
-import java.util.Map;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.Vector;
 
 import javax.imageio.ImageIO;
 
@@ -22,8 +25,8 @@ final class PhotoCollageCreator {
   private int resizedWidth = 200;
   private int numRows = 1;
   private int numCols = 1;
-  private int smallImageWidth = 100;
-  private int smallImageHeight = 100;
+  private int smallImageWidth = 25;
+  private int smallImageHeight = 25;
   private int nearestImageThreshhold = 20;
   private File outDir;
 
@@ -65,25 +68,36 @@ final class PhotoCollageCreator {
     }
     if (getColorEagerly) {
       final Vector<ClassifiedImage> q = new Vector<ClassifiedImage>(images);
-      final int[] t = { 0 };
+      final int[] cnt = { 0 };
       final int n = images.size();
+      List<Thread> threads = new ArrayList<Thread>();
       for (int i = 0; i < 300; i++) {
-        new Thread(new Runnable() {
+        Thread t = new Thread(new Runnable() {
           @Override
           public void run() {
 
             while (!q.isEmpty()) {
               ClassifiedImage image = q.remove(0);
               try {
-                LOG.infof("[%d/%d (%.2f%%)] getting color for %s", t[0], n, 100 * ((float) t[0] / (float) n), image);
-                t[0]++;
+                LOG.infof("[%d/%d (%.2f%%)] getting color for %s", cnt[0], n, 100 * ((float) cnt[0] / (float) n),
+                    image);
+                cnt[0]++;
                 image.getColor();
               } catch (IOException | InterruptedException e) {
                 e.printStackTrace();
               }
             }
           }
-        }).start();
+        });
+        threads.add(t);
+        t.start();
+      }
+      for (Thread t : threads) {
+        try {
+          t.join();
+        } catch (InterruptedException e) {
+          e.printStackTrace();
+        }
       }
       imageClassifier.flush();
     }
@@ -126,33 +140,63 @@ final class PhotoCollageCreator {
     log.start(width, height);
     final int rowStart = height * row;
     final int colStart = width * col;
-    for (int i = rowStart; i < rowStart + height; i++, log.nextRow()) {
-      log.info("Starting row " + i);
-      for (int j = colStart; j < colStart + width; j++, log.nextCol()) {
-        int pixel = image.getRGB(j, i);
-        int red = (pixel >> 16) & 0xff;
-        int green = (pixel >> 8) & 0xff;
-        int blue = (pixel) & 0xff;
+    for (int y = rowStart; y < rowStart + height; y++, log.nextRow()) {
+      log.info("Starting row " + y);
+      for (int x = colStart; x < colStart + width; x++, log.nextCol()) {
+        Comparable<Color> comp = getComparableColor(image, x, y);
 
-        // Reduce the red a little. This makes the colors come out more nicely.
-        if (red > 100) {
-          red -= 50;
+        Comparable<Color> top = null, right = null, bottom = null, left = null;
+        if (y > 0) {
+          top = getComparableColor(image, x, y - 1);
+        }
+        if (x < width - 1) {
+          right = getComparableColor(image, x + 1, y);
+        }
+        if (y < height - 1) {
+          bottom = getComparableColor(image, x, y + 1);
+        }
+        if (x > 0) {
+          left = getComparableColor(image, x - 1, y);
         }
 
-        Color color = new Color(red, green, blue);
-        Comparable<Color> comp = new ComparableColor(color);
-        ClassifiedImage classifiedImage = nearestImage(comp, images, nearestImageThreshhold);
+        ClassifiedImage classifiedImage = nearestImageWithNeighbors(
+            comp, images, nearestImageThreshhold, top, right, bottom, left);
         File bufImageFile = classifiedImage.getResizedImage(smallImageWidth);
         BufferedImage bufImage = ImageIO.read(bufImageFile);
-        int x = smallImageWidth * (j - colStart);
-        int y = smallImageHeight * (i - rowStart);
-        output.write(bufImageFile, x, y);
+        if (bufImage == null) {
+          throw new RuntimeException("bad image");
+        }
+        int nx = smallImageWidth * (x - colStart);
+        int ny = smallImageHeight * (y - rowStart);
+        output.write(bufImageFile, nx, ny);
       }
     }
 
     log.done();
     output.close();
     log.info("Done");
+  }
+
+  private Comparable<Color> getComparableColor(BufferedImage image, int x, int y) {
+    int pixel = 0;
+    try {
+      pixel = image.getRGB(x, y);
+    } catch (ArrayIndexOutOfBoundsException e) {
+      throw new RuntimeException(
+          String.format("width=%d height=%d x=%d y=%d", image.getWidth(), image.getHeight(), x, y), e);
+    }
+    int red = (pixel >> 16) & 0xff;
+    int green = (pixel >> 8) & 0xff;
+    int blue = (pixel) & 0xff;
+
+    // Reduce the red a little. This makes the colors come out more nicely.
+    if (red > 100) {
+      red -= 50;
+    }
+
+    Color color = new Color(red, green, blue);
+    Comparable<Color> comp = new ComparableColor(color);
+    return comp;
   }
 
   private final static class ComparableColor implements Comparable<Color> {
@@ -167,11 +211,53 @@ final class PhotoCollageCreator {
     }
   }
 
+  private static <T> Set<T> intersect(Iterable<T> a, Collection<T> b) {
+    Set<T> res = new HashSet<T>();
+    for (T t : a) {
+      if (b.contains(t)) {
+        res.add(t);
+      }
+    }
+    return res;
+  }
+
   private final Map<ClassifiedImage, Integer> lastUsed = new HashMap<ClassifiedImage, Integer>();
   private int lastUsedCount = 0;
 
-  private ClassifiedImage nearestImage(Comparable<Color> color, List<ClassifiedImage> images, int threshhold)
+  private ClassifiedImage nearestImageWithNeighbors(Comparable<Color> color, List<ClassifiedImage> images,
+      int threshhold, Comparable<Color> top, Comparable<Color> left, Comparable<Color> bottom, Comparable<Color> right)
       throws InterruptedException, IOException {
+    List<ClassifiedImage> topImages = nearestImages(top, ImageSegment.TOP, images, threshhold, false);
+    List<ClassifiedImage> rightImages = nearestImages(right, ImageSegment.RIGHT, images, threshhold, false);
+    List<ClassifiedImage> bottomImages = nearestImages(bottom, ImageSegment.BOTTOM, images, threshhold, false);
+    List<ClassifiedImage> leftImages = nearestImages(left, ImageSegment.LEFT, images, threshhold, false);
+
+    Set<ClassifiedImage> intersection = new HashSet<>(topImages);
+
+    intersection = intersect(intersection, rightImages);
+    intersection = intersect(intersection, bottomImages);
+    intersection = intersect(intersection, leftImages);
+
+    if (!intersection.isEmpty()) {
+      return chooseLeastUsed(intersection);
+    }
+
+    List<ClassifiedImage> chosenImages = nearestImages(color, ImageSegment.ALL, images, threshhold, true);
+    return chooseLeastUsed(chosenImages);
+  }
+
+  private ClassifiedImage nearestImage(Comparable<Color> color, Iterable<ClassifiedImage> images, int threshhold)
+      throws InterruptedException, IOException {
+    List<ClassifiedImage> chosenImages = nearestImages(color, ImageSegment.ALL, images, threshhold, true);
+    return chooseLeastUsed(chosenImages);
+  }
+
+  private List<ClassifiedImage> nearestImages(Comparable<Color> color, ImageSegment s, Iterable<ClassifiedImage> images,
+      int threshhold, boolean recur)
+      throws InterruptedException, IOException {
+    if (color == null) {
+      return Collections.emptyList();
+    }
     final List<ClassifiedImage> chosenImages = new ArrayList<ClassifiedImage>();
     int nearestDistance = Integer.MAX_VALUE;
     ClassifiedImage nearestImage = null;
@@ -185,26 +271,33 @@ final class PhotoCollageCreator {
         chosenImages.add(image);
       }
     }
-    if (chosenImages.size() == 0) {
-      return nearestImage(color, images, threshhold + threshhold / 2);
-    }
-    int newThreshhold = threshhold;
-    while (chosenImages.size() > 50) {
-      newThreshhold /= 2;
-      List<ClassifiedImage> newChosenImages = new ArrayList<ClassifiedImage>();
-      for (ClassifiedImage image : chosenImages) {
-        if (color.compareTo(image.getColor()) <= newThreshhold) {
-          newChosenImages.add(image);
-        }
-      }
-      chosenImages.clear();
-      chosenImages.addAll(newChosenImages);
-      log.info("reducing threshold to " + newThreshhold + " #images=" + chosenImages.size());
-    }
     if (chosenImages.isEmpty()) {
-      return nearestImage;
+      return nearestImages(color, s, images, threshhold + threshhold / 2, recur);
+    }
+    if (recur) {
+      int newThreshhold = threshhold;
+      while (chosenImages.size() > 50) {
+        newThreshhold /= 2;
+        List<ClassifiedImage> newChosenImages = new ArrayList<ClassifiedImage>();
+        for (ClassifiedImage image : chosenImages) {
+          if (color.compareTo(image.getColor()) <= newThreshhold) {
+            newChosenImages.add(image);
+          }
+        }
+        chosenImages.clear();
+        chosenImages.addAll(newChosenImages);
+        log.info("reducing threshold to " + newThreshhold + " #images=" + chosenImages.size());
+      }
     }
 
+    if (chosenImages.isEmpty()) {
+      chosenImages.add(nearestImage);
+    }
+
+    return chosenImages;
+  }
+
+  private ClassifiedImage chooseLeastUsed(Iterable<ClassifiedImage> chosenImages) {
     int minLastUsed = Integer.MAX_VALUE;
     ClassifiedImage minLastUsedimg = null;
     for (ClassifiedImage img : chosenImages) {
@@ -220,11 +313,5 @@ final class PhotoCollageCreator {
     }
     lastUsed.put(minLastUsedimg, lastUsedCount++);
     return minLastUsedimg;
-
-    // Collections.sort(chosenImages);
-    // int index = (int) (chosenImages.size() * Math.random());
-    // ClassifiedImage img = chosenImages.get(index);
-    // lastUsed.put(img, lastUsedCount++);
-    // return img;
   }
 }
