@@ -28,12 +28,12 @@
     </license>
   </licenses>
 
-  <repositories>
+  <!-- <repositories>
     <repository>
       <id>genericjavabuilder</id>
       <url>https://github.com/spudtrooper/genericbuilder-java/tree/mvn-repo</url>
     </repository>
-  </repositories>
+  </repositories> -->
 
   <distributionManagement>
     <repository>
@@ -56,11 +56,11 @@
       <version>4.8.1</version>
       <scope>test</scope>
     </dependency>
-    <dependency>
+    <!-- <dependency>
       <groupId>com.jeffpalm</groupId>
       <artifactId>genericjavabuilder</artifactId>
       <version>1.0-SNAPSHOT</version>
-    </dependency>
+    </dependency> -->
   </dependencies>
   <build>
     <plugins>
@@ -112,8 +112,8 @@
         <artifactId>maven-compiler-plugin</artifactId>
         <version>2.3.2</version>
         <configuration>
-          <source>1.6</source>
-          <target>1.6</target>
+          <source>1.7</source>
+          <target>1.7</target>
         </configuration>
       </plugin>
     </plugins>
