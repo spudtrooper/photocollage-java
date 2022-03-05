@@ -8,7 +8,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
-import java.io.ObjectInputStream;
 import java.io.PrintStream;
 import java.util.HashMap;
 import java.util.Map;
@@ -144,56 +143,17 @@ final class ImageClassifier {
 
   private final Color doClassify(File imageFile, ImageSegment s) throws IOException {
     BufferedImage image = ImageIO.read(imageFile);
-    if (image == null) {
-      return null;
-    }
-    int width = image.getWidth();
-    int height = image.getHeight();
+    ColorBox colorBox = ColorBox.getColorBox(image, config, s);
 
-    int firstRow = 0, lastRow = 0, firstCol = 0, lastCol = 0;
-
-    int realFirstRow = (int) ((1 - config.heightPercentage) / 2 * height);
-    int realLastRow = height - realFirstRow;
-    int realFirstCol = (int) ((1 - config.widthPercentage) / 2 * width);
-    int realLastCol = width - realFirstCol;
-
-    switch (s) {
-      case ALL:
-        firstRow = realFirstRow;
-        lastRow = realLastRow;
-        firstCol = realFirstCol;
-        lastCol = realLastCol;
-        break;
-      case LEFT:
-        firstRow = realFirstRow;
-        lastRow = realLastRow;
-        firstCol = realFirstCol;
-        lastCol = realLastCol / 3;
-        break;
-      case RIGHT:
-        firstRow = realFirstRow;
-        lastRow = realLastRow;
-        firstCol = 2 * realFirstCol / 3;
-        lastCol = realLastCol;
-        break;
-      case TOP:
-        firstRow = realFirstRow;
-        lastRow = realLastRow / 3;
-        firstCol = realFirstCol;
-        lastCol = realLastCol;
-        break;
-      case BOTTOM:
-        firstRow = 2 * realFirstRow / 3;
-        lastRow = realLastRow;
-        firstCol = realFirstCol;
-        lastCol = realLastCol;
-        break;
-    }
-
-    return getColor(image, firstRow, lastRow, firstCol, lastCol);
+    return getColor(image, colorBox);
   }
 
-  private final Color getColor(BufferedImage image, int firstRow, int lastRow, int firstCol, int lastCol) {
+  private final Color getColor(BufferedImage image, ColorBox colorBox) {
+    int firstRow = colorBox.firstRow;
+    int lastRow = colorBox.lastRow;
+    int firstCol = colorBox.firstCol;
+    int lastCol = colorBox.lastCol;
+
     long redBucket = 0;
     long greenBucket = 0;
     long blueBucket = 0;

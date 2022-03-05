@@ -39,7 +39,7 @@ final class ClassifiedImage implements Comparable<ClassifiedImage> {
   }
 
   private final Map<ImageSegment, Color> segmentsTocolors = new HashMap<>();
-  public Color getColor(ImageSegment s) {
+  public Color getColor(ImageSegment s) throws IOException {
     Color color = segmentsTocolors.get(s);
     if (color == null) {
       color = imageClassifier.classify(file, s);
@@ -48,7 +48,7 @@ final class ClassifiedImage implements Comparable<ClassifiedImage> {
     return color;
   }
 
-  public Color getColor() throws InterruptedException, IOException {
+  public Color getColor() throws IOException {
     if (color == null) {
       color = imageClassifier.classify(file, ImageSegment.ALL);
     }

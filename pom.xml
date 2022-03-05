@@ -1,5 +1,4 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.jeffpalm</groupId>
   <artifactId>photocollage</artifactId>
@@ -28,13 +27,6 @@
     </license>
   </licenses>
 
-  <!-- <repositories>
-    <repository>
-      <id>genericjavabuilder</id>
-      <url>https://github.com/spudtrooper/genericbuilder-java/tree/mvn-repo</url>
-    </repository>
-  </repositories> -->
-
   <distributionManagement>
     <repository>
       <id>internal.repo</id>
@@ -56,11 +48,11 @@
       <version>4.8.1</version>
       <scope>test</scope>
     </dependency>
-    <!-- <dependency>
-      <groupId>com.jeffpalm</groupId>
-      <artifactId>genericjavabuilder</artifactId>
-      <version>1.0-SNAPSHOT</version>
-    </dependency> -->
+    <dependency>
+      <groupId>com.google.guava</groupId>
+      <artifactId>guava</artifactId>
+      <version>31.1-jre</version>
+    </dependency>
   </dependencies>
   <build>
     <plugins>

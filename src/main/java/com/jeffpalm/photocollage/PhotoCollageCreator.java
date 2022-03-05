@@ -83,7 +83,7 @@ final class PhotoCollageCreator {
                     image);
                 cnt[0]++;
                 image.getColor();
-              } catch (IOException | InterruptedException e) {
+              } catch (IOException e) {
                 e.printStackTrace();
               }
             }
@@ -110,6 +110,30 @@ final class PhotoCollageCreator {
         createCollage(inputImageFile, images, resizedInputImage, row, col);
       }
     }
+  }
+
+  private Map<ImageSegment, Comparable<Color>> getComparableSegments(BufferedImage image, int width, int height, int x,
+      int y) {
+    Comparable<Color> top = null, right = null, bottom = null, left = null;
+    if (y > 0) {
+      top = getComparableColor(image, x, y - 1);
+    }
+    if (x < width - 1) {
+      right = getComparableColor(image, x + 1, y);
+    }
+    if (y < height - 1) {
+      bottom = getComparableColor(image, x, y + 1);
+    }
+    if (x > 0) {
+      left = getComparableColor(image, x - 1, y);
+    }
+
+    Map<ImageSegment, Comparable<Color>> res = new HashMap<>();
+    res.put(ImageSegment.TOP, top);
+    res.put(ImageSegment.RIGHT, right);
+    res.put(ImageSegment.BOTTOM, bottom);
+    res.put(ImageSegment.LEFT, left);
+    return res;
   }
 
   private void createCollage(File inputImageFile, final List<ClassifiedImage> images, final BufferedImage image,
@@ -144,23 +168,10 @@ final class PhotoCollageCreator {
       log.info("Starting row " + y);
       for (int x = colStart; x < colStart + width; x++, log.nextCol()) {
         Comparable<Color> comp = getComparableColor(image, x, y);
-
-        Comparable<Color> top = null, right = null, bottom = null, left = null;
-        if (y > 0) {
-          top = getComparableColor(image, x, y - 1);
-        }
-        if (x < width - 1) {
-          right = getComparableColor(image, x + 1, y);
-        }
-        if (y < height - 1) {
-          bottom = getComparableColor(image, x, y + 1);
-        }
-        if (x > 0) {
-          left = getComparableColor(image, x - 1, y);
-        }
-
-        ClassifiedImage classifiedImage = nearestImageWithNeighbors(
-            comp, images, nearestImageThreshhold, top, right, bottom, left);
+        Map<ImageSegment, Comparable<Color>> segmentColors = getComparableSegments(image, width, height, x, y);
+        ClassifiedImage classifiedImage = nearestImageWithNeighbors(comp, images, nearestImageThreshhold,
+            segmentColors.get(ImageSegment.TOP), segmentColors.get(ImageSegment.RIGHT),
+            segmentColors.get(ImageSegment.BOTTOM), segmentColors.get(ImageSegment.LEFT));
         File bufImageFile = classifiedImage.getResizedImage(smallImageWidth);
         BufferedImage bufImage = ImageIO.read(bufImageFile);
         if (bufImage == null) {
@@ -247,14 +258,13 @@ final class PhotoCollageCreator {
   }
 
   private ClassifiedImage nearestImage(Comparable<Color> color, Iterable<ClassifiedImage> images, int threshhold)
-      throws InterruptedException, IOException {
+      throws IOException {
     List<ClassifiedImage> chosenImages = nearestImages(color, ImageSegment.ALL, images, threshhold, true);
     return chooseLeastUsed(chosenImages);
   }
 
   private List<ClassifiedImage> nearestImages(Comparable<Color> color, ImageSegment s, Iterable<ClassifiedImage> images,
-      int threshhold, boolean recur)
-      throws InterruptedException, IOException {
+      int threshhold, boolean recur) throws IOException {
     if (color == null) {
       return Collections.emptyList();
     }
@@ -262,7 +272,7 @@ final class PhotoCollageCreator {
     int nearestDistance = Integer.MAX_VALUE;
     ClassifiedImage nearestImage = null;
     for (ClassifiedImage image : images) {
-      int dist = color.compareTo(image.getColor());
+      int dist = color.compareTo(image.getColor(s.getOpposite()));
       if (nearestDistance > dist) {
         nearestDistance = dist;
         nearestImage = image;
@@ -280,7 +290,7 @@ final class PhotoCollageCreator {
         newThreshhold /= 2;
         List<ClassifiedImage> newChosenImages = new ArrayList<ClassifiedImage>();
         for (ClassifiedImage image : chosenImages) {
-          if (color.compareTo(image.getColor()) <= newThreshhold) {
+          if (color.compareTo(image.getColor(s.getOpposite())) <= newThreshhold) {
             newChosenImages.add(image);
           }
         }
