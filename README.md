@@ -2,7 +2,7 @@
 
 A Java library for creating photo collages from individual images. A example is here:
 
-  http://jeffpalm.com/sarah
+  https://github.com/spudtrooper/photocollage-java/stella-head-200w25xh25-out.png
   
 # Building
 
